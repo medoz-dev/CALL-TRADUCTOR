@@ -1,0 +1,6 @@
+{
+  "name": "Traducteur d'Appels Live",
+  "description": "Traducteur vocal bidirectionnel en temps réel pendant vos appels (WhatsApp, Zoom, Téléphone) avec synthèse vocale instantanée.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
