@@ -19,6 +19,11 @@ dependencyResolutionManagement {
   repositories {
     google()
     mavenCentral()
+    maven {
+      url = uri("https://alphacephei.com/maven/")
+    }
+    maven { url = uri("https://oss.sonatype.org/content/groups/public/") }
+    maven { url = uri("https://oss.sonatype.org/content/repositories/releases/") }
   }
 }
 

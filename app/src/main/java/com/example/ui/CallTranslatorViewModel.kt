@@ -21,6 +21,19 @@ class CallTranslatorViewModel(application: Application) : AndroidViewModel(appli
     val isListening = LiveTranslatorManager.isListening
     val currentSpeaker = LiveTranslatorManager.currentSpeaker
 
+    // Internet call streams
+    val internetConnectionState = com.example.service.InternetCallManager.connectionState
+    val internetRoomCode = com.example.service.InternetCallManager.roomCode
+    val internetMyName = com.example.service.InternetCallManager.myName
+    val internetPeerName = com.example.service.InternetCallManager.peerName
+    val internetIsCallIncoming = com.example.service.InternetCallManager.isCallIncoming
+    val internetIsCallActive = com.example.service.InternetCallManager.isCallActive
+    val internetCallerName = com.example.service.InternetCallManager.callerName
+    val internetActiveCallMessages = com.example.service.InternetCallManager.activeCallMessages
+    val internetIsListening = com.example.service.InternetCallManager.isListening
+    val internetCurrentOriginalText = com.example.service.InternetCallManager.currentOriginalText
+    val internetCurrentTranslatedText = com.example.service.InternetCallManager.currentTranslatedText
+
     // Room DB streams
     val callHistory: StateFlow<List<CallSession>> = repository.allSessions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -39,9 +52,20 @@ class CallTranslatorViewModel(application: Application) : AndroidViewModel(appli
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val activeSessionMessages: StateFlow<List<TranslationMessage>> = currentSessionId
+        .flatMapLatest { sessionId ->
+            if (sessionId == null) {
+                flowOf(emptyList())
+            } else {
+                repository.getMessagesForSession(sessionId)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
-        // Initialize the central translation orchestrator
+        // Initialize the central translation orchestrators
         LiveTranslatorManager.initialize(application, repository)
+        com.example.service.InternetCallManager.initialize(application, repository)
     }
 
     fun startCallTranslation(contact: String, app: String) {
@@ -130,9 +154,42 @@ class CallTranslatorViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    // Internet Call room controls
+    fun connectToInternetRoom(code: String, userName: String) {
+        val currentSettings = settings.value
+        com.example.service.InternetCallManager.myLanguage = currentSettings.clientLang
+        com.example.service.InternetCallManager.partnerLanguage = currentSettings.partnerLang
+        com.example.service.InternetCallManager.myVoiceType = currentSettings.voiceType
+        com.example.service.InternetCallManager.speakerRate = currentSettings.speechRate
+        com.example.service.InternetCallManager.speakerPitch = currentSettings.speechPitch
+        
+        com.example.service.InternetCallManager.connectToRoom(code, userName)
+    }
+
+    fun disconnectFromInternetRoom() {
+        com.example.service.InternetCallManager.disconnect()
+    }
+
+    fun triggerInternetMic() {
+        com.example.service.InternetCallManager.toggleMicrophone()
+    }
+
+    fun startInternetCallDial() {
+        com.example.service.InternetCallManager.initiateOnlineCall()
+    }
+
+    fun acceptInternetCall() {
+        com.example.service.InternetCallManager.acceptIncomingCall()
+    }
+
+    fun rejectInternetCall() {
+        com.example.service.InternetCallManager.rejectIncomingCall()
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Standard cleanup on destroy
         LiveTranslatorManager.stopSession()
+        com.example.service.InternetCallManager.disconnect()
     }
 }

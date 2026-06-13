@@ -32,6 +32,7 @@ object LiveTranslatorManager {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var voiceManager: VoiceManager? = null
+    private var voskSpeechManager: VoskSpeechManager? = null
     private var repository: TranslationRepository? = null
 
     // Session settings
@@ -67,7 +68,19 @@ object LiveTranslatorManager {
                 _currentOriginalText.value = partial
             },
             onSpeechStateChange = { listening ->
-                _isListening.value = listening
+                if (!offlineModeEnabled) {
+                    _isListening.value = listening
+                }
+            }
+        )
+
+        voskSpeechManager = VoskSpeechManager(
+            context = context,
+            onTranscriptResult = { text ->
+                handleIncomingTranscription(text)
+            },
+            onPartialResult = { partial ->
+                _currentOriginalText.value = partial
             }
         )
     }
@@ -98,7 +111,7 @@ object LiveTranslatorManager {
     fun stopSession() {
         val sessionId = _currentSessionId.value
         _isTranslationActive.value = false
-        voiceManager?.stopListening()
+        stopListening()
         
         if (sessionId != null && repository != null) {
             coroutineScope.launch {
@@ -135,7 +148,7 @@ object LiveTranslatorManager {
         
         // If we are actively listening, restart listing in the other language
         if (_isTranslationActive.value) {
-            voiceManager?.stopListening()
+            stopListening()
             startListeningCurrentSpeaker()
         }
     }
@@ -147,18 +160,30 @@ object LiveTranslatorManager {
         _currentTranslatedText.value = ""
         
         if (_isTranslationActive.value) {
-            voiceManager?.stopListening()
+            stopListening()
             startListeningCurrentSpeaker()
         }
     }
 
     fun startListeningCurrentSpeaker() {
-        val listeningLanguage = if (_currentSpeaker.value == "ME") clientLang else partnerLang
-        voiceManager?.startListening(listeningLanguage, preferOffline = offlineModeEnabled)
+        if (offlineModeEnabled) {
+            val success = voskSpeechManager?.startListening() ?: false
+            if (success) {
+                _isListening.value = true
+            }
+        } else {
+            val listeningLanguage = if (_currentSpeaker.value == "ME") clientLang else partnerLang
+            voiceManager?.startListening(listeningLanguage, preferOffline = false)
+        }
     }
 
     fun stopListening() {
-        voiceManager?.stopListening()
+        if (offlineModeEnabled) {
+            voskSpeechManager?.stopListening()
+            _isListening.value = false
+        } else {
+            voiceManager?.stopListening()
+        }
     }
 
     private fun handleIncomingTranscription(text: String) {
@@ -224,5 +249,6 @@ object LiveTranslatorManager {
 
     fun cleanUp() {
         voiceManager?.destroy()
+        voskSpeechManager?.destroy()
     }
 }
